@@ -1,0 +1,86 @@
+REPORT z_automotive_quality_analysis_v2.
+
+" --- VERİ YAPILARI (TYPES) ---
+TYPES: BEGIN OF ty_production,
+         part_id        TYPE char10,
+         total_produced TYPE i,
+         total_defects  TYPE i,
+         defect_rate    TYPE p LENGTH 5 DECIMALS 2,
+         status         TYPE char20,
+       END OF ty_production.
+
+DATA: lt_report TYPE TABLE OF ty_production.
+
+" Sabitler - Bakım kolaylığı sağlar
+CONSTANTS: gc_status_kritik    TYPE char20 VALUE 'KRITIK',
+           gc_status_optimal   TYPE char20 VALUE 'OPTIMAL',
+           gc_status_kusursuz  TYPE char20 VALUE 'KUSURSUZ'.
+
+" --- SEÇİM EKRANI (SELECTION SCREEN) ---
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+  PARAMETERS: p_limit TYPE p LENGTH 3 DECIMALS 1 DEFAULT '5.0',
+              p_top   TYPE i DEFAULT 3.
+SELECTION-SCREEN END OF BLOCK b1.
+
+" --- ANA SÜREÇ ---
+START-OF-SELECTION.
+  PERFORM prepare_data.
+  PERFORM calculate_metrics.
+  PERFORM display_report.
+
+" --- ALT PROGRAMLAR (FORMS) ---
+
+FORM prepare_data.
+  " Örnek Veri Seti
+  lt_report = VALUE #(
+    ( part_id = 'FR-001'  total_produced = 1000 total_defects = 65 )
+    ( part_id = 'ENG-99'  total_produced = 500  total_defects = 5  )
+    ( part_id = 'TR-404'  total_produced = 2000 total_defects = 0  )
+    ( part_id = 'BR-777'  total_produced = 800  total_defects = 80 )
+    ( part_id = 'AX-222'  total_produced = 1200 total_defects = 24 )
+  ).
+ENDFORM.
+
+FORM calculate_metrics.
+  " Field-Symbol ile doğrudan tablo üzerinde işlem (Performans odaklı)
+  LOOP AT lt_report ASSIGNING FIELD-SYMBOL(<fs_row>).
+    
+    IF <fs_row>-total_produced > 0.
+      <fs_row>-defect_rate = ( <fs_row>-total_defects * 100 ) / <fs_row>-total_produced.
+    ENDIF.
+
+    IF <fs_row>-defect_rate > p_limit.
+      <fs_row>-status = gc_status_kritik.
+    ELSEIF <fs_row>-defect_rate > 0.
+      <fs_row>-status = gc_status_optimal.
+    ELSE.
+      <fs_row>-status = gc_status_kusursuz.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+
+FORM display_report.
+  TRY.
+      " SALV Factory ile hızlı ALV oluşturma
+      cl_salv_table=>factory(
+        IMPORTING r_salv_table = DATA(lo_alv)
+        CHANGING  t_table      = lt_report ).
+
+      " Kolon ayarları
+      DATA(lo_cols) = lo_alv->get_columns( ).
+      lo_cols->set_optimize( abap_true ). " Kolon genişliklerini otomatik ayarla
+
+      " Hata Oranı Kolonu Başlığı
+      DATA(lo_col_rate) = lo_cols->get_column( 'DEFECT_RATE' ).
+      lo_col_rate->set_long_text( 'Hata Oranı (%)' ).
+
+      " Standart fonksiyonları (Sıralama, Filtre, Excel Export) aç
+      lo_alv->get_functions( )->set_all( abap_true ).
+
+      " Raporu ekrana bas
+      lo_alv->display( ).
+
+    CATCH cx_salv_msg INTO DATA(lx_msg).
+      MESSAGE lx_msg->get_text( ) TYPE 'I' DISPLAY LIKE 'E'.
+  ENDTRY.
+ENDFORM.
