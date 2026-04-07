@@ -47,5 +47,8 @@ Program çalıştığında aşağıdaki metrikleri otomatik olarak hesaplar:
 
 ![Z_AUTO_QUALITY_ANALYSER 7](https://github.com/user-attachments/assets/e9d966a0-42fb-4a09-96a3-3a5a4c5cad6d)
 
+Geliştiren: Mercan Köseoğlu
+Data Analyst & SAP ABAP Consultant
+
 
 
